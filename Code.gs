@@ -173,26 +173,56 @@ function getTranslationData(languageColumnNumber, os) {
  * Generates the Android translation files.
  */
 function generateAndroidTranslationFile(os, language, data) {
-  var translationContent = '';
+  var translationContent = '<!---\n' + getHeader(os, language) + '\n-->\n\n<resources>\n';
+  var pluralsKey = null;
 
-  translationContent = '<!---\n' + getHeader(os, language) + '\n-->\n'
+  function checkPlurals(isPlural, key) {
+    if (isPlural) {
+      if (pluralsKey == null) {
+        translationContent += '<plurals name="' + key + '">\n';
+      } else if (pluralsKey !== key) {
+        translationContent += '</plurals>\n<plurals name="' + key + '">\n';
+      }
+      pluralsKey = key
+    } else {
+      if (pluralsKey != null) {
+        translationContent += '</plurals>\n';
+        pluralsKey = null;
+      }
+    }
+  }
 
-  translationContent += '\n<resources>\n'
+  function isPlural(key){
+    return key.indexOf("_plurals_")>-1;
+  }
+
 
   for (var sectionNumber = 0; sectionNumber < data.length; sectionNumber++) {
     var section = data[sectionNumber];
 
-    if (section['sectionTitle'] != undefined)
+    if (section['sectionTitle'] != undefined){
+      checkPlurals(false);
       translationContent += '\n<!-- ' + section['sectionTitle'] + ' -->\n\n';
+    }
 
     if (section['values'] != undefined) {
       for (var translationNumber = 0; translationNumber < section['values'].length; translationNumber++) {
         var translation = section['values'][translationNumber];
 
         if (translation != undefined && translation['key'] != undefined && translation['value'] != undefined) {
-          var key = translation['key']
-          var value = translation['value'].replace(/#\?#/g, '%s').replace(/#(\d+)\?#/g, '%$1$s').replace(/'/g, '\\\'').replace(/"/g, '\\\"')
-          translationContent += '\t<string name="' + key + '">\n\t\t' + value + '\n\t</string>\n';
+          if (isPlural(translation['key'])) {
+            var keyParts = translation['key'].split("_plurals_");
+            var key = keyParts[0];
+            var quantity = keyParts[1];
+            var value = translation['value'].replace(/#(\d*?)\?(.*?)#/g, typeReplacerAndroid).replace(/'/g, '\\\'').replace(/"/g, '\\\"')
+            checkPlurals(true, key)
+            translationContent += '<item quantity="' + quantity + '">' + value + '</item>\n'
+          } else {
+            var key = translation['key']
+            var value = translation['value'].replace(/#(\d*?)\?(.*?)#/g, typeReplacerAndroid).replace(/'/g, '\\\'').replace(/"/g, '\\\"')
+            checkPlurals(false)
+            translationContent += '<string name="' + key + '">' + value + '</string>\n'
+          }
         }
       }
     }
@@ -201,6 +231,28 @@ function generateAndroidTranslationFile(os, language, data) {
   translationContent += '</resources>'
 
   return translationContent;
+}
+
+function typeReplacerAndroid(match, p1, p2, offset, string) {
+  var stringFormatted = '%';
+  if (p1)
+    stringFormatted += p1 + '$';
+  if (p2)
+    stringFormatted += p2;
+  else
+    stringFormatted += 's';
+  return stringFormatted;
+}
+
+function typeReplacerIOS(match, p1, p2, offset, string) {
+  var stringFormatted = '%';
+  if (p1)
+    stringFormatted += p1 + '$';
+  if (p2)
+    stringFormatted += p2;
+  else
+    stringFormatted += '@';
+  return stringFormatted;
 }
 
 /**
@@ -222,8 +274,8 @@ function generateIOSTranslationFile(os, language, data) {
         var translation = section['values'][translationNumber];
 
         if (translation != undefined && translation['key'] != undefined && translation['value'] != undefined) {
-          var key = translation['key']
-          var value = translation['value'].replace(/#\?#/g, '%@').replace(/#(\d+)\?#/g, '%$1$@').replace(/"/g, '\\\"')
+          var key = translation['key'].split("_").join(".")
+          var value = translation['value'].replace(/#(\d*?)\?(.*?)#/g, typeReplacerIOS).replace(/"/g, '\\\"')
           translationContent += '"' + key + '" = "' + value + '";\n';
         }
       }
