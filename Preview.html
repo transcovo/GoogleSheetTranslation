@@ -1,0 +1,229 @@
+<!--
+--
+-- Preview.html
+--
+-- Copyright © 2015 Sebastien MICHOY and contributors.
+--
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions are met:
+--
+-- Redistributions of source code must retain the above copyright notice, this
+-- list of conditions and the following disclaimer. Redistributions in binary
+-- form must reproduce the above copyright notice, this list of conditions and
+-- the following disclaimer in the documentation and/or other materials
+-- provided with the distribution. Neither the name of the nor the names of
+-- its contributors may be used to endorse or promote products derived from
+-- this software without specific prior written permission.
+--
+-- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+-- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-- ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+-- LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+-- CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+-- SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+-- INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+-- CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+-- ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+-- POSSIBILITY OF SUCH DAMAGE.
+-->
+
+<link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+
+<div>
+  <select id="osSelect" onchange="osSelectValueChanged()" disabled>
+    <option>Please wait...</option>
+  </select>
+
+  <select id="languageSelect" onchange="languageSelectValueChanged()" disabled>
+    <option>Please wait...</option>
+  </select>
+
+  <br /><br />
+
+  <textarea id="previewTextField" style="width: 100%; height: 200px;" readonly>Please wait...</textarea>
+
+  <br /><br />
+
+  <a id="downloadLink" href="" onclick="setupDownloadLink(this, previewTextField.value)" download="translation.txt" style="text-decoration: none; padding: 8px 18px 8px 18px; background-color: #4d90fe; color: white; border-radius: 2px; border-width: 1px; border-color: black; font-family: arial; font-size: 11px; font-weight: bold;">Download</a>
+</div>
+
+<script>
+  /** On Load **/
+
+  /**
+   * Called when the UI is loaded.
+   */
+  function load() {
+    var downloadLink = document.getElementById('downloadLink');
+
+    if (typeof downloadLink.download == 'undefined') {
+      downloadLink.style.backgroundColor = '#BEBEBE';
+    }
+
+    google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure).generateTranslationFiles();
+  }
+
+  /** Data Callbacks **/
+
+  /**
+   * Called when the Google Script cannot return the translated data.
+   */
+  function onFailure(error) {
+    var newOSOption = document.createElement('option');
+    newOSOption.text = 'Oupsss!';
+
+    var newLanguageOption = document.createElement('option');
+    newLanguageOption.text = 'Oupsss!';
+
+    var osSelect = document.getElementById('osSelect');
+    osSelect.options.remove(0);
+    osSelect.options.add(newOSOption, 1);
+
+    var languageSelect = document.getElementById('languageSelect');
+    languageSelect.options.remove(0);
+    languageSelect.options.add(newLanguageOption, 1);
+
+    document.getElementById('previewTextField').innerHTML = 'Something went wrong:\n' + error;
+  }
+
+  /**
+   * Called when the Google Script return the translated data.
+   */
+  function onSuccess(translationFiles) {
+    g_translationFiles = translationFiles;
+
+    updateOSSelect(translationFiles);
+    document.getElementById('osSelect').disabled = false
+
+    updateLanguageSelect(translationFiles);
+    document.getElementById('languageSelect').disabled = false
+
+    updatePreviewTextField(translationFiles)
+  }
+
+  /** Download Functions **/
+
+  /**
+   * Setup the download link.
+   */
+  function setupDownloadLink(link, code) {
+    if (typeof downloadLink.download != 'undefined') {
+      link.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(code);
+      link.download = downloadFileName(g_translationFiles);
+    } else {
+      link.href = 'javascript: void(0)';
+    }
+  };
+
+  /**
+   * Return the name of the file which will be downloaded.
+   */
+  function downloadFileName(translationFiles) {
+    var osSelect = document.getElementById('osSelect');
+    var osValue = osSelect.options[osSelect.selectedIndex].value;
+
+    var languageSelect = document.getElementById('languageSelect');
+    var languageValue = languageSelect.options[languageSelect.selectedIndex].value;
+
+    var fileName = 'translation.txt';
+
+    for (var osIndex = 0, ossLength = translationFiles.length; osIndex < ossLength; osIndex++) {
+      if (translationFiles[osIndex]['osName'] == osValue) {
+        for (var languageIndex = 0, languagesLength = translationFiles[osIndex]['translations'].length; languageIndex < languagesLength; ++languageIndex) {
+          if (translationFiles[osIndex]['translations'][languageIndex]['language'] == languageValue) {
+            fileName = translationFiles[osIndex]['translations'][languageIndex]['fileName']
+          }
+        }
+      }
+    }
+
+    return fileName;
+  }
+
+  /** UI Functions **/
+
+  /**
+   * Called when the language value is changed.
+   */
+  function languageSelectValueChanged() {
+    updatePreviewTextField(g_translationFiles)
+  }
+
+  /**
+   * Called when the OS value is changed.
+   */
+  function osSelectValueChanged() {
+    updateLanguageSelect(g_translationFiles);
+    updatePreviewTextField(g_translationFiles)
+  }
+
+  /**
+   * Update language select in function of the OS select.
+   */
+  function updateLanguageSelect(translationFiles) {
+    var osSelect = document.getElementById('osSelect');
+    var osValue = osSelect.options[osSelect.selectedIndex].value;
+
+    var languageSelect = document.getElementById('languageSelect');
+    languageSelect.selectedIndex = 0;
+
+    for (var optionIndex = 0, optionsLength = languageSelect.options.length; optionIndex < optionsLength; ++optionIndex) {
+      languageSelect.options.remove(0);
+    }
+
+    for (var osIndex = 0, ossLength = translationFiles.length; osIndex < ossLength; osIndex++) {
+      if (translationFiles[osIndex]['osName'] == osValue) {
+        for (var languageIndex = 0, languagesLength = translationFiles[osIndex]['translations'].length; languageIndex < languagesLength; ++languageIndex) {
+          var newLanguageOption = document.createElement('option');
+          newLanguageOption.text = translationFiles[osIndex]['translations'][languageIndex]['language'];
+          newLanguageOption.value = translationFiles[osIndex]['translations'][languageIndex]['language'];
+          languageSelect.options.add(newLanguageOption, languageIndex);
+        }
+      }
+    }
+
+    languageSelect.selectedIndex = 0;
+  }
+
+  /**
+   * Update OS select.
+   */
+  function updateOSSelect(translationFiles) {
+    var osSelect = document.getElementById('osSelect');
+
+    for (var optionIndex = 0, optionsLength = osSelect.options.length; optionIndex < optionsLength; ++optionIndex) {
+      osSelect.options.remove(0);
+    }
+
+    for (var osIndex = 0, ossLength = translationFiles.length; osIndex < ossLength; osIndex++) {
+      var newOSOption = document.createElement('option');
+      newOSOption.text = translationFiles[osIndex]['osName'];
+      newOSOption.value = translationFiles[osIndex]['osName'];
+      osSelect.options.add(newOSOption, osIndex);
+    }
+  }
+
+  /**
+   * Update the preview text field in function of selects values.
+   */
+  function updatePreviewTextField(translationFiles) {
+    var osSelect = document.getElementById('osSelect');
+    var osValue = osSelect.options[osSelect.selectedIndex].value;
+
+    var languageSelect = document.getElementById('languageSelect');
+    var languageValue = languageSelect.options[languageSelect.selectedIndex].value;
+
+    for (var osIndex = 0, ossLength = translationFiles.length; osIndex < ossLength; osIndex++) {
+      if (translationFiles[osIndex]['osName'] == osValue) {
+        for (var languageIndex = 0, languagesLength = translationFiles[osIndex]['translations'].length; languageIndex < languagesLength; ++languageIndex) {
+          if (translationFiles[osIndex]['translations'][languageIndex]['language'] == languageValue) {
+            document.getElementById('previewTextField').innerHTML = translationFiles[osIndex]['translations'][languageIndex]['file']
+          }
+        }
+      }
+    }
+  }
+
+  window.addEventListener('load', load());
+</script>
