@@ -104,10 +104,12 @@ function validateFormat(formatDesc,lineIndex) {
 
   for(var col = 0; col < data[0].length; col++) {
     // the regexp search for :
+    // %1$d or %2$d or %1$s => valid ony for $s or $d
+    // or
     // #?1$d# or #?2$d# or #?1$s# => valid ony for $s or $d
     // or
     // #?d# or #?#
-    matches = data[0][col].match(/#\?(\d)\$[d,s]#|#\?[d,s]?#/g);
+    matches = data[0][col].match(/%(\d)\$[d,s]|#\?(\d)\$[d,s]#|#\?[d,s]?#/g);
 
     if(JSON.stringify(argsNeeded).localeCompare(JSON.stringify(matches)) == 0) {
       sheet.getRange(lineIndex, startingColumn+col, 1, 2).setBackground("white");
