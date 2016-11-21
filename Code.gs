@@ -35,7 +35,8 @@
 function onOpen() {
   var spreadsheet = SpreadsheetApp.getActive();
   var menuItems = [{name: 'Generate translation', functionName: 'displayGenerationUI'},
-                   {name: 'Initialize spreadsheet', functionName: 'displayInitiationSpreadsheetUI'}];
+                   {name: 'Initialize spreadsheet', functionName: 'displayInitiationSpreadsheetUI'},
+                  {name: 'Validate Spreadsheet', functionName: 'validateSpreadsheet'}];
 
   spreadsheet.addMenu('Translation', menuItems);
 }
@@ -62,6 +63,61 @@ function displayInitiationSpreadsheetUI() {
   if (response == ui.Button.YES) {
     generateTranslationSpreadsheet();
   }
+}
+
+/**
+ * Validate that cells containing a format / variable are correct
+ */
+function validateSpreadsheet() {
+  var validationColumn = 4; // column containing format definition
+  var errorValidation = 0;
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var data = sheet.getDataRange().getValues();
+
+  for (var i = 0; i < data.length; i++) {
+    formatDesc = data[i][validationColumn];
+
+    if(formatDesc != "") {
+      Logger.log('validateSpreadsheet.Format: ' + formatDesc);
+      errorValidation += validateFormat(formatDesc,i+1);
+    }
+  }
+
+  var ui = SpreadsheetApp.getUi()
+
+  if(errorValidation == 0) {
+    ui.alert("Congrats, your file is ready to build", ui.ButtonSet.OK);
+  } else {
+    ui.alert("You have "+errorValidation+" error(s) on your document. Search for red background cells ;)", ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * for one line, check that cells variable format is ok
+ */
+function validateFormat(formatDesc,lineIndex) {
+  var startingColumn = 2;
+  var error = 0;
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var data = sheet.getRange(lineIndex, startingColumn, 1, 2).getValues();
+  var argsNeeded = formatDesc.split("|"); // split format definition column
+
+  for(var col = 0; col < data[0].length; col++) {
+    // the regexp search for :
+    // #?1$d# or #?2$d# or #?1$s# => valid ony for $s or $d
+    // or
+    // #?d# or #?#
+    matches = data[0][col].match(/#\?(\d)\$[d,s]#|#\?[d,s]?#/g);
+
+    if(JSON.stringify(argsNeeded).localeCompare(JSON.stringify(matches)) == 0) {
+      sheet.getRange(lineIndex, startingColumn+col, 1, 2).setBackground("white");
+    } else {
+      error++;
+      sheet.getRange(lineIndex, startingColumn+col, 1, 1).setBackground("red");
+    }
+  }
+
+  return error;
 }
 
 /** Translation Functions **/
