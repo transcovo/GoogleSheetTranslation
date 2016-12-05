@@ -332,7 +332,7 @@ function generateIOSTranslationFile(os, language, data) {
         var translation = section['values'][translationNumber];
 
         if (translation != undefined && translation['key'] != undefined && translation['value'] != undefined) {
-          var key = translation['key'].split("_").join(".")
+          var key = translation['key']
           var value = translation['value'].replace(/#(\d*?)\?(.*?)#/g, typeReplacerIOS).replace(/"/g, '\\\"')
           translationContent += '"' + key + '" = "' + value + '";\n';
         }
